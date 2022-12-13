@@ -165,8 +165,8 @@ def rand_dist(dist_func, func=None, lim=[-10,10], length=10000, args=None):
     sel = sel[sel>lim[0]]
     return sel
     
-    
 def crossmatch_pair(x1,y1,x2,y2):
+    '''Similar to crossmatch in halotools but for pair of ID's. Take much longer and need more memories'''
     test = np.array((x1,y1)).T
     target = np.array((x2,y2)).T
     trial = (test[:,None]==target).all(2)
@@ -195,6 +195,7 @@ def vcirc(mass,redshift,mdef,cosmo):
 #matplotlib stuff
 import matplotlib.ticker as ticker
 
+### Taken from Erwin Lau
 class MyLogFormatter(ticker.LogFormatter) :
     '''Usage: ax.xaxis.set_major_formatter(MyLogFormatter())
     '''
