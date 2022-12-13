@@ -14,10 +14,10 @@ def pe_distance(x,y,lim=500.):
     d[d>lim/2.] = d[d>lim/2.]-lim
     return np.sqrt(np.sum(d**2.,axis=0))
     
-def pe1d_distance(hostval,satval,dim=500.):
+def pe1d_distance(hostval,satval,lim=500.):
     d = satval-hostval
-    d[d>dim/2] = d[d>dim/2]-dim
-    d[d<-dim/2] = d[d<-dim/2]+dim
+    d[d>lim/2] = d[d>lim/2]-lim
+    d[d<-lim/2] = d[d<-lim/2]+lim
     return d
 
 def angle(x,y,z):
@@ -27,11 +27,32 @@ def angle(x,y,z):
     r = np.sqrt(x**2+y**2+z**2)
     return np.arccos(z/r), np.arctan2(y,x)
     
+def remove_perh(x, h):
+    '''convert Mpc/h to Mpc and so on'''
+    return x/h
+    
+def add_perh(x, h):
+    '''convert Mpc to Mpc/h and so on'''
+    return x*h
+    
+def physical_2_comoving(physical = None, comoving=None, aexp = 1.0):
+    '''
+    Usage: 
+    physical_2_comoving(physical=x,aexp=0.5) to convert physical x Mpc to comoving at a=0.5
+    physical_2_comoving(comoving=x,aexp=0.5) to convert comoving x Mpc to physical at a=0.5
+    '''
+    if comoving==None:
+        return physical/aexp
+    else:
+        return comoving*aexp
+        
+    
 #def vector_xyz_rt(pos,vec):
 #    vecr = np.array(pos[0]*vec[0]+pos[1]*vec[1]+pos[2]*vec[2])/np.sqrt(pos[0]**2+pos[1]**2+pos[2]**2)
 #    return vecr
     
 def vector_xyz_rt(pos,vec):
+    '''Convert vec=[vx,vy,vz] to [vr,vtheta,vphi] relative to 0 point at pos=[x,y,z]'''
     theta, phi = angle(*pos)
     vecr = vec[0]*np.sin(theta)*np.cos(phi)+vec[1]*np.sin(theta)*np.sin(phi)+vec[2]*np.cos(theta)
     vect = vec[0]*np.cos(theta)*np.cos(phi)+vec[1]*np.cos(theta)*np.sin(phi)-vec[2]*np.sin(theta)
@@ -112,7 +133,15 @@ def exp_pol(x,pt1,pt2):
 def rand_dist(dist_func, func=None, lim=[-10,10], length=10000, args=None):
     '''
     Generate random number for any distribution function with rejection sampling
-    within bounded limit.
+    within bounded limit. Useful if you don't know cumulative distribution function
+    dist_func = distribution function used to generate random number
+    func = fiducial function to be used. 
+        If None, default is cauchy distribution at median=0, width=1
+    lim = [lower, upper]
+        Limit within which random number is generated. Infinite bound not acrepted. 
+    length = approximate length of output.
+    args = arguments for dist_func
+    
     '''
     if func==None:
         func = lambda x: 1/(np.pi*(1+x**2))
