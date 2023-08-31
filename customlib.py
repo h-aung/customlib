@@ -154,6 +154,9 @@ def rand_dist(dist_func, func=None, lim=[-10,10], length=10000, args=None):
         c = int(np.ceil(np.amax(dist_func(test,*args)/func(test))))
     u = uniform(size=length*c)
     y = standard_cauchy(size=length*c)
+    limmask = (y<lim[1]) & (y>lim[0])
+    y = y[limmask]
+    u = u[limmask]
     gy = 1/(np.pi*(1+y**2))
     if args==None:
         fy = dist_func(y)
@@ -161,12 +164,10 @@ def rand_dist(dist_func, func=None, lim=[-10,10], length=10000, args=None):
         fy = dist_func(y,*args)
     mask = u<fy/(c*gy)
     sel = y[mask]
-    sel = sel[sel<lim[1]]
-    sel = sel[sel>lim[0]]
     return sel
     
+    
 def crossmatch_pair(x1,y1,x2,y2):
-    '''Similar to crossmatch in halotools but for pair of ID's. Take much longer and need more memories'''
     test = np.array((x1,y1)).T
     target = np.array((x2,y2)).T
     trial = (test[:,None]==target).all(2)
@@ -176,11 +177,15 @@ def crossmatch_pair(x1,y1,x2,y2):
 
 #astropy calculations   
 from astropy import units as u
-from astropy.constants import G
+from astropy import constants as c
 def vcirc(mass,redshift,mdef,cosmo):
     '''Calculate circular velocity in km/s for halos of mass M (Msun/h)'''
     rho_crit = cosmo.critical_density(redshift)
-    if mdef[-1] == 'c':
+    if mdef == 'vir':
+        x = cosmo.Om(redshift) - 1
+        delta = 18 * np.pi**2 + 82.0 * x - 39.0 * x**2
+        rho = delta*rho_crit
+    elif mdef[-1] == 'c':
         delta = int(mdef[:-1])
         rho = delta*rho_crit
     elif mdef[-1] == 'm':
@@ -188,14 +193,60 @@ def vcirc(mass,redshift,mdef,cosmo):
         rho = delta*rho_crit*cosmo.Om(redshift)
     else:
         raise RuntimeError("Not correct mass definition")
-    v = np.sqrt(G*(np.pi*4*rho/3)**(1./3)*(mass*u.Msun/cosmo.h)**(2./3))
-    a = v.to(u.km/u.s)
-    return a.value
+    v = np.sqrt(c.G*(np.pi*4*rho/3)**(1./3)*(mass*u.Msun/cosmo.h)**(2./3))
+    return v.to(u.km/u.s)
+    
+def delta_vir(z, cosmo):
+    x = cosmo.Om(z) - 1
+    return 18 * np.pi**2 + 82.0 * x - 39.0 * x**2
+    
+def virial_values(M, z, cosmo, mdef = 'vir', quantity='pressure', mu = 0.59):
+    '''Calculate the virial/normalized values for different quantities of halos
+    according to Lau+2015
+    Parameters:
+       M: halo mass in Msun unit, h=1
+       z: redshift
+       cosmo: astropy cosmology object
+       mdef: mass definition, vir, xxc or xxm
+       quantity: virial quantity to calculate, 
+       radius, density (total), pressure, temperature, velocity 
+       mu: mean particle weigh
+    Return:
+       virial quantity. Can use .to('xx') to convert to desired units.
+       Default units are radius(kpc), P(keV/cm3), T(keV), v(km/s)
+    '''
+    rho_crit = cosmo.critical_density(z)
+    if mdef == 'vir':
+        x = cosmo.Om(z) - 1
+        delta = 18 * np.pi**2 + 82.0 * x - 39.0 * x**2
+        rho = delta*rho_crit
+    elif mdef[-1] == 'c':
+        delta = int(mdef[:-1])
+        rho = delta*rho_crit
+    elif mdef[-1] == 'm':
+        delta = int(mdef[:-1])
+        rho = delta*rho_crit*cosmo.Om(z)
+    else:
+        raise ValueError("Unsupported mdef")
+    fb = cosmo.Ob0/cosmo.Om0
+    M = M*u.Msun
+    R = ((3*M/(np.pi*4*rho))**(1./3)).to('kpc')
+    if quantity=='radius':
+        return R
+    elif quantity=='density':
+        return rho    
+    elif quantity=='pressure':
+        return (fb*rho*c.G*M/(2*R)).to('keV/cm3')
+    elif quantity=='temperature':
+        return (c.G*M*mu*c.m_p/(2*R)).to('keV')
+    elif quantity=='velocity':
+        return np.sqrt(c.G*M/R).to('km/s')
+    else:
+        raise ValueError("Unsupported quantity")
     
 #matplotlib stuff
 import matplotlib.ticker as ticker
 
-### Taken from Erwin Lau
 class MyLogFormatter(ticker.LogFormatter) :
     '''Usage: ax.xaxis.set_major_formatter(MyLogFormatter())
     '''
