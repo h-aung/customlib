@@ -4,20 +4,43 @@ import numpy as np
 from numpy.linalg import inv
 from numpy.random import uniform, standard_cauchy
 
-def pe_distance(x,y,lim=500.):
-    '''x(a size-dimension numpy array)
-    y should be numpy arrays with (size-dimension,size-len of position)
-    '''
-    d = np.zeros_like(y)
-    for i in range(d.shape[0]):
-        d[i] = np.abs(x[i]-y[i])
-    d[d>lim/2.] = d[d>lim/2.]-lim
-    return np.sqrt(np.sum(d**2.,axis=0))
+def pe_distance(pos1,pos2,box_size=500.):
+    '''Calculate periodic distance between pos1 and pos2. 
+    pos1: [[x, y, z], [...], [...]] or [x, y, z]
+    pos2: [[x, y, z], [...], [...]] or [x, y, z]
+    box_size: The size of periodic box
     
-def pe1d_distance(hostval,satval,lim=500.):
-    d = satval-hostval
-    d[d>lim/2] = d[d>lim/2]-lim
-    d[d<-lim/2] = d[d<-lim/2]+lim
+    Return:
+    np array of periodic distances 
+    '''
+    if not hasattr(pos1, '__array__'):
+        pos1 = np.array(pos1)
+    if not hasattr(pos2, '__array__'):
+        pos2 = np.array(pos2)
+    if len(pos1.shape)>len(pos2.shape):
+        d = np.abs(pos1-pos2)
+    else:
+        d = np.abs(pos2-pos1)
+    d[d>box_size/2.] = d[d>box_size/2.]-box_size
+    return np.sqrt(np.sum(d**2.,axis=1))
+    
+def pe_distance1d(pos1,pos2,box_size=500.):
+    '''
+    Calculate 1-dimensional periodic distance of pos1 with respect to pos2. 
+    pos1: 1-d positions
+    pos2: 1-d positions
+    box_size: The size of periodic box
+    
+    Return:
+    np array of periodic distances 
+    '''
+    if not hasattr(pos1, '__array__'):
+        pos1 = np.array(pos1)
+    if not hasattr(pos2, '__array__'):
+        pos2 = np.array(pos2)
+    d = pos1-pos2
+    d[d>box_size/2] = d[d>box_size/2]-box_size
+    d[d<-box_size/2] = d[d<-box_size/2]+box_size
     return d
 
 def angle(x,y,z):
