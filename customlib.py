@@ -202,7 +202,8 @@ def crossmatch_pair(x1,y1,x2,y2):
 from astropy import units as u
 from astropy import constants as c
 def vcirc(mass,redshift,mdef,cosmo):
-    '''Calculate circular velocity in km/s for halos of mass M (Msun/h)'''
+    '''Deprecated. Use virial_values(..., quantity='velocity') instead.
+    Calculate circular velocity in km/s for halos of mass M (Msun/h)'''
     rho_crit = cosmo.critical_density(redshift)
     if mdef == 'vir':
         x = cosmo.Om(redshift) - 1
@@ -220,28 +221,48 @@ def vcirc(mass,redshift,mdef,cosmo):
     return v.to(u.km/u.s)
     
 def delta_vir(z, cosmo):
+    '''Calculate the overdensity of halo with respect to critical density 
+    following Bryan & Norman 1998.
+    Parameters:
+       z: redshift
+       cosmo: astropy cosmology object
+    Return:
+       overdensity (unitless). Multiply with cosmo.critical_density(z) to get physical density.
+    '''
     x = cosmo.Om(z) - 1
     return 18 * np.pi**2 + 82.0 * x - 39.0 * x**2
     
 def virial_values(M, z, cosmo, mdef = 'vir', quantity='pressure', mu = 0.59):
-    '''Calculate the virial/normalized values for different quantities of halos
-    according to Lau+2015
+    '''Calculate the virial/normalized values for different quantities of halos.
     Parameters:
        M: halo mass in Msun unit, h=1
        z: redshift
        cosmo: astropy cosmology object
-       mdef: mass definition, vir, xxc or xxm
+          Example: from astropy.cosmology import Planck15 as cosmo
+       mdef: mass definition
+          vir (virial definition from Bryan & Norman 1998)
+          xxxc or xxxm (xxx is any integer), e.g. 200c
+          scaled_vir (virial scaled to 200 at early times, used in CompaSO)
        quantity: virial quantity to calculate, 
-       radius, density (total), pressure, temperature, velocity 
-       mu: mean particle weigh
+          Choices are radius, density, pressure, temperature, velocity, time.
+          radius: physical radius in kpc.
+          density: average total density in g/cm^3. Multiply with cosmo.Ob0/cosmo.Om0 for baryonic density
+          pressure: rho_gas * G*M/(2R) in keV/cm^3. See Lau+2015 and others.
+          temperature: mu*mp*( G*M/(2R) ) in keV. Divide by Boltzmann constant for temperature.
+          velocity: sqrt(G*M/R) in km/s.
+          time: radius/velocity in Myr. Dynamical/virial crossing time independent of halo mass, and only on mdef and redshift.
+          Multiply with 2 for time to return to the virial radius, 2*pi for orbital time
+       mu: mean particle weigh. Only used in tempreature.
     Return:
-       virial quantity. Can use .to('xx') to convert to desired units.
-       Default units are radius(kpc), P(keV/cm3), T(keV), v(km/s)
+       virial quantity. Can use .to('xx') to convert to desired units. See astropy documentations.
+       Default units are radius(kpc), P(keV/cm3), T(keV), v(km/s), t(Myr)
     '''
     rho_crit = cosmo.critical_density(z)
     if mdef == 'vir':
-        x = cosmo.Om(z) - 1
-        delta = 18 * np.pi**2 + 82.0 * x - 39.0 * x**2
+        delta = delta_vir(z, cosmo)
+        rho = delta*rho_crit
+    elif mdef == 'scaled_vir':
+        delta = delta_vir(z, cosmo)*200/(18 * np.pi**2)
         rho = delta*rho_crit
     elif mdef[-1] == 'c':
         delta = int(mdef[:-1])
@@ -264,6 +285,8 @@ def virial_values(M, z, cosmo, mdef = 'vir', quantity='pressure', mu = 0.59):
         return (c.G*M*mu*c.m_p/(2*R)).to('keV')
     elif quantity=='velocity':
         return np.sqrt(c.G*M/R).to('km/s')
+    elif quantity=='time':
+        return (R/np.sqrt(c.G*M/R)).to('Myr')
     else:
         raise ValueError("Unsupported quantity")
     
